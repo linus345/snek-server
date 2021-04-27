@@ -30,6 +30,13 @@ int main(int argc, char *argv[])
         return 2;
     }
 
+    UDPpacket *pack_send;
+    pack_send = SDLNet_AllocPacket(1024);
+    if(!pack_send) {
+        fprintf(stderr, "Error: SDLNet_AllocPacket %s\n", SDLNet_GetError());
+        return 2;
+    }
+
     // main loop
     while(1) {
         if(SDLNet_UDP_Recv(udp_sock, pack_recv)) {
@@ -41,6 +48,14 @@ int main(int argc, char *argv[])
             printf("Status: %d\n", pack_recv->status);
             printf("src host: %u\n", pack_recv->address.host);
             printf("src port: %u\n", pack_recv->address.port);
+            //fill packet
+            pack_send->channel = pack_recv->channel;
+            pack_send->data = pack_recv->data;
+            pack_send->len = pack_recv->len;
+            pack_send->maxlen = 1024;
+            pack_send->address = pack_recv->address;
+            //send back packet
+            SDLNet_UDP_Send(udp_sock, pack_send->channel, pack_send);
         }
     }
 
