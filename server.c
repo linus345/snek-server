@@ -1,15 +1,17 @@
 #include <stdio.h>
-#include <stdbool.h>
+#include <stdlib.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_net.h>
-#include <server.h>
+#include "server.h"
 
+UDPsocket open_socket(int port)
+{
+    UDPsocket udp_sock = SDLNet_UDP_Open(port);
 
-int port = 1234;
+    if(!udp_sock) {
+        printf("SDLNet_UDP_Open: %s", SDLNet_GetError());
+        exit(EXIT_FAILURE);
+    }
 
-UDPSocket *udpsocket = open_socket(port);
-
-if (!udpsocket) {
-    printf("SDLNet_UDP_Open: %s", SDLNet_GetError());
-    return 2;
+    return udp_sock;
 }

@@ -1,6 +1,8 @@
 #ifndef SERVER_H
 #define SERVER_H
 
-#define MAX_SOCKETS 4
+#define MAX_CLIENTS 4
 
-UDPsocket *open_socket(int port);
+UDPsocket open_socket(int port);
+
+#endif
