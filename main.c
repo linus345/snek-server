@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdbool.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_net.h>
@@ -18,9 +19,18 @@ int main(int argc, char *argv[])
     }
     printf("succesfully initialized SDL_net\n");
 
-    int port = 1234;
+    if(argc != 3) {
+        printf("Usage: %s <host> <port>\n", argv[0]);
+        return 1;
+    }
+    
+    // initialize server structure with correct host and port
+    char *host = argv[1];
+    int port = atoi(argv[2]);
+    Server *server = init_server(host, port);
+
     // open udp socket
-    UDPsocket udp_sock = open_socket(port);
+    server->udp_sock = open_socket(server->port);
 
     // allocate memory for receive packet
     UDPpacket *pack_recv;
@@ -39,26 +49,17 @@ int main(int argc, char *argv[])
 
     // main loop
     while(1) {
-        if(SDLNet_UDP_Recv(udp_sock, pack_recv)) {
-            // received packet
-            handle_received_packet(pack_recv);
-            
-            //fill packet
-            pack_send->channel = pack_recv->channel;
-            pack_send->data = pack_recv->data;
-            pack_send->len = pack_recv->len+1;
-            pack_send->maxlen = 1024;
-            pack_send->address = pack_recv->address;
-
-            //send back packet
-            SDLNet_UDP_Send(udp_sock, pack_send->channel, pack_send);
+        if(SDLNet_UDP_Recv(server->udp_sock, pack_recv)) {
+            // received packet, send occurs inside this function too
+            handle_received_packet(server, pack_recv, pack_send);
         }
     }
 
     SDLNet_FreePacket(pack_recv);
     SDLNet_FreePacket(pack_send);
-    SDLNet_UDP_Close(udp_sock);
-    udp_sock = NULL;
+    SDLNet_UDP_Close(server->udp_sock);
+    server->udp_sock = NULL;
+    free(server);
     SDLNet_Quit();
     SDL_Quit();
 
