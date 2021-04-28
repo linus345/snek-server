@@ -41,26 +41,24 @@ int main(int argc, char *argv[])
     while(1) {
         if(SDLNet_UDP_Recv(udp_sock, pack_recv)) {
             // received packet
-            printf("Channel: %d\n", pack_recv->channel);
-            printf("Data: %s\n", pack_recv->data);
-            printf("Len: %d\n", pack_recv->len);
-            printf("Max len: %d\n", pack_recv->maxlen);
-            printf("Status: %d\n", pack_recv->status);
-            printf("src host: %u\n", pack_recv->address.host);
-            printf("src port: %u\n", pack_recv->address.port);
+            handle_received_packet(pack_recv);
+            
             //fill packet
             pack_send->channel = pack_recv->channel;
             pack_send->data = pack_recv->data;
-            pack_send->len = pack_recv->len;
+            pack_send->len = pack_recv->len+1;
             pack_send->maxlen = 1024;
             pack_send->address = pack_recv->address;
+
             //send back packet
             SDLNet_UDP_Send(udp_sock, pack_send->channel, pack_send);
         }
     }
 
     SDLNet_FreePacket(pack_recv);
+    SDLNet_FreePacket(pack_send);
     SDLNet_UDP_Close(udp_sock);
+    udp_sock = NULL;
     SDLNet_Quit();
     SDL_Quit();
 
