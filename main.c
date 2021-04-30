@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include <stdbool.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_net.h>
@@ -47,12 +48,21 @@ int main(int argc, char *argv[])
         return 2;
     }
 
+    srand(time(NULL));
+    unsigned last_time = 0, current_time;
+
     // main loop
     while(1) {
         if(SDLNet_UDP_Recv(server->udp_sock, pack_recv)) {
             // received packet, send occurs inside this function too
             handle_received_packet(server, pack_recv, pack_send);
         }
+        current_time = SDL_GetTicks();
+        if (current_time > last_time + 2000) {
+            // send random fruit position to all clients
+            send_random_fruit_pos(server, pack_send);
+            last_time = current_time;
+        }  
     }
 
     SDLNet_FreePacket(pack_recv);

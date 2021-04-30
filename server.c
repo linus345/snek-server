@@ -146,3 +146,25 @@ void send_updated_snake_pos(Server *server, UDPpacket *pack_recv, UDPpacket *pac
     // send upd packet
     SDLNet_UDP_Send(server->udp_sock, pack_send->channel, pack_send);
 }
+
+void send_random_fruit_pos(Server *server, UDPpacket *pack_send)
+{
+    char msg[20];
+    int random_x = rand();
+    int random_y = rand();
+    int random_type = rand();
+
+    // format request typ, x pos, y pos and random type before sending
+    sprintf(msg, "%d %d %d %d", RANDOM_POS, random_x, random_y, random_type);
+
+    pack_send->data = msg;
+    pack_send->channel = pack_recv->channel;
+    pack_send->len = sizeof(pack_send->data)+4;
+    pack_send->maxlen = 1024;
+    
+    // send upd packet to each client
+    for(int i = 0; i < server->nr_of_clients; i++) {
+        pack_send->address = server->clients[i].address;
+        SDLNet_UDP_Send(socket, pack_send->channel, pack_send);
+    }
+}

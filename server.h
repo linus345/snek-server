@@ -9,6 +9,7 @@ enum Request_Type {
     SUCCESSFUL_CONNECTION = 1,
     FAILED_CONNECTION = 2,
     UPDATE_SNAKE_POS = 3
+    RANDOM_POS = 5;
 };
 
 typedef struct {
@@ -33,5 +34,6 @@ void handle_update_snake_pos(Server *server, UDPpacket *pack_recv, UDPpacket *pa
 void send_connection_success(Server *server, UDPpacket *pack_recv, UDPpacket *pack_send);
 void send_connection_failed(Server *server, UDPpacket *pack_recv, UDPpacket *pack_send);
 void send_updated_snake_pos(Server *server, UDPpacket *pack_recv, UDPpacket *pack_send);
+void send_random_fruit_pos(Server *server, UDPpacket *pack_send);
 
 #endif
