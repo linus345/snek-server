@@ -8,8 +8,8 @@ enum Request_Type {
     CLIENT_JOIN = 0,
     SUCCESSFUL_CONNECTION = 1,
     FAILED_CONNECTION = 2,
-    UPDATE_SNAKE_POS = 3
-    RANDOM_POS = 5;
+    UPDATE_SNAKE_POS = 3,
+    RANDOM_POS = 5
 };
 
 typedef struct {
