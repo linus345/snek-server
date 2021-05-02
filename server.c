@@ -166,7 +166,7 @@ void send_updated_snake_pos(Server *server, UDPpacket *pack_recv, UDPpacket *pac
 
 void send_random_fruit_pos(Server *server, UDPpacket *pack_send)
 {
-    char msg[20];
+    char msg[40];
     int random_x = rand();
     int random_y = rand();
     int random_type = rand();
