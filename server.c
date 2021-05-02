@@ -62,7 +62,6 @@ void handle_join_request(Server *server, UDPpacket *pack_recv, UDPpacket *pack_s
         // add client ip to connected clients, increment of nr_of_clients is done in send_connection_success
         server->clients[server->nr_of_clients].addr = pack_recv->address;
         printf("client connected\n");
-        log_packet(pack_recv);
         // send back connection success
         send_connection_success(server, pack_recv, pack_send);
     } else {
@@ -80,7 +79,6 @@ void handle_update_snake_pos(Server *server, UDPpacket *pack_recv, UDPpacket *pa
     for(int i = 0; i < server->nr_of_clients; i++) {
         // get client id
         sscanf(pack_recv->data, "%d %d", &temp, &id);
-        printf("temp: %d, id: %d\n", temp, id);
         // get clients that should receive packet (everyone but the sender)
         if(id != server->clients[i].id) {
             // specify destination address
@@ -94,10 +92,11 @@ void handle_update_snake_pos(Server *server, UDPpacket *pack_recv, UDPpacket *pa
 void send_connection_success(Server *server, UDPpacket *pack_recv, UDPpacket *pack_send)
 {
     // format data
-    char msg[4];
+    char msg[6];
     // send back message that the connection was successful, NOTE: increments nr_of_clients
-    // format: type id
-    sprintf(msg, "%d %d", SUCCESSFUL_CONNECTION, server->clients[server->nr_of_clients++].id);
+    // format: type id nr_of_clients
+    server->nr_of_clients++;
+    sprintf(msg, "%d %d %d", SUCCESSFUL_CONNECTION, server->clients[server->nr_of_clients-1].id, server->nr_of_clients);
     pack_send->data = msg;
 
     pack_send->channel = pack_recv->channel;
@@ -107,9 +106,27 @@ void send_connection_success(Server *server, UDPpacket *pack_recv, UDPpacket *pa
     // specify destination address from source address
     pack_send->address = pack_recv->address;
 
+    printf("send_connection_success: type id nr_of_clients\n");
     log_packet(pack_send);
-    // send udp packet
+
+    // send udp packet to client that connected
     SDLNet_UDP_Send(server->udp_sock, pack_send->channel, pack_send);
+
+    // send data to all other connected clients that a new client joined
+    // format: type id
+    sprintf(msg, "%d %d", NEW_CLIENT_JOINED, server->clients[server->nr_of_clients-1].id);
+    pack_send->data = msg;
+    for(int i = 0; i < server->nr_of_clients; i++) {
+        // get clients that should receive packet (everyone but the sender)
+        if(server->clients[server->nr_of_clients-1].id != server->clients[i].id) {
+            printf("new_client_joined:\n");
+            log_packet(pack_send);
+            // specify destination address
+            pack_send->address = server->clients[i].addr;
+            // send packet to clients
+            SDLNet_UDP_Send(server->udp_sock, pack_send->channel, pack_send);
+        }
+    }
 }
 
 void send_connection_failed(Server *server, UDPpacket *pack_recv, UDPpacket *pack_send)
@@ -135,11 +152,11 @@ void send_updated_snake_pos(Server *server, UDPpacket *pack_recv, UDPpacket *pac
 {
     // send the same data that the server received to the other clients
     // send back message that the connection failed
-    // format: type x y
+    // format: type id x y direction
     pack_send->data = pack_recv->data;
 
     pack_send->channel = pack_recv->channel;
-    pack_send->len = sizeof(pack_send->data);
+    pack_send->len = sizeof(pack_send->data)+24;
     pack_send->maxlen = 1024;
 
     // destination address is already defined in pack_send
