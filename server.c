@@ -172,16 +172,17 @@ void send_random_fruit_pos(Server *server, UDPpacket *pack_send)
     int random_type = rand();
 
     // format request typ, x pos, y pos and random type before sending
+    // TODO: line below causes "stack smashing detected" error
     sprintf(msg, "%d %d %d %d", RANDOM_POS, random_x, random_y, random_type);
 
     pack_send->data = msg;
-    pack_send->channel = pack_recv->channel;
+    pack_send->channel = -1;
     pack_send->len = sizeof(pack_send->data)+4;
     pack_send->maxlen = 1024;
     
     // send upd packet to each client
     for(int i = 0; i < server->nr_of_clients; i++) {
-        pack_send->address = server->clients[i].address;
-        SDLNet_UDP_Send(socket, pack_send->channel, pack_send);
+        pack_send->address = server->clients[i].addr;
+        SDLNet_UDP_Send(server->udp_sock, pack_send->channel, pack_send);
     }
 }

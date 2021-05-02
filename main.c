@@ -57,6 +57,8 @@ int main(int argc, char *argv[])
             // received packet, send occurs inside this function too
             handle_received_packet(server, pack_recv, pack_send);
         }
+
+        // generate new fruit position every other second and send to clients
         current_time = SDL_GetTicks();
         if (current_time > last_time + 2000) {
             // send random fruit position to all clients
