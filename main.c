@@ -35,36 +35,61 @@ int main(int argc, char *argv[])
 
     // allocate memory for receive packet
     UDPpacket *pack_recv;
-    pack_recv = SDLNet_AllocPacket(1024);
+    pack_recv = SDLNet_AllocPacket(128);
     if(!pack_recv) {
         fprintf(stderr, "Error: SDLNet_AllocPacket %s\n", SDLNet_GetError());
         return 2;
     }
 
     UDPpacket *pack_send;
-    pack_send = SDLNet_AllocPacket(1024);
+    pack_send = SDLNet_AllocPacket(128);
     if(!pack_send) {
         fprintf(stderr, "Error: SDLNet_AllocPacket %s\n", SDLNet_GetError());
         return 2;
     }
 
     srand(time(NULL));
-    unsigned last_time = 0, current_time;
+    unsigned t1_last_time = 0, t1_current_time;
+    unsigned t2_last_time = 0, t2_current_time;
 
+    /* SDL_Thread *listen_thread, *client_threads[MAX_CLIENTS]; */
+
+    /* Thread_Args args; */
+    /* args.server = server; */
+    /* args.pack_recv = pack_recv; */
+    /* args.pack_send = pack_send; */
+
+    /* listen_thread = SDL_CreateThread(listen_for_packets, "listen", (void *) & */
+
+    unsigned ticks = SDL_GetTicks();
     // main loop
     while(1) {
         if(SDLNet_UDP_Recv(server->udp_sock, pack_recv)) {
             // received packet, send occurs inside this function too
-            handle_received_packet(server, pack_recv, pack_send);
+            handle_received_packet(server, pack_recv, pack_send, ticks);
+
+            /* int type; */
+            /* // get request type from packet */
+            /* sscanf(a->pack_recv->data, "%d", &type); */
+            /* if(type == CLIENT_JOIN) { */
+            /* } */
+
+            /* client_threads[server->nr_of_clients] = SDL_CreateThread(handle_received_packet, "c1", (void *) &args); */
         }
 
         // generate new fruit position every other second and send to clients
-        current_time = SDL_GetTicks();
-        if (current_time > last_time + 2000) {
+        t1_current_time = SDL_GetTicks();
+        if (t1_current_time > t1_last_time + 2000) {
             // send random fruit position to all clients
             send_random_fruit_pos(server, pack_send);
-            last_time = current_time;
-        }  
+            t1_last_time = t1_current_time;
+        }
+
+        t2_current_time = SDL_GetTicks();
+        if(t2_current_time > t2_last_time + 50) {
+            send_ticks(server, pack_send);
+            t2_last_time = t2_current_time;
+        }
     }
 
     SDLNet_FreePacket(pack_recv);

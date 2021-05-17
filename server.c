@@ -37,7 +37,11 @@ void log_packet(UDPpacket *pack_recv)
     printf("src port: %u\n", pack_recv->address.port);
 }
 
-void handle_received_packet(Server *server, UDPpacket *pack_recv, UDPpacket *pack_send)
+/* void listen_for_packets(Server *server, UDPpacket *pack_recv) */
+/* { */
+/* } */
+
+void handle_received_packet(Server *server, UDPpacket *pack_recv, UDPpacket *pack_send, unsigned ticks)
 {
     int type;
     // get request type from packet
@@ -45,25 +49,47 @@ void handle_received_packet(Server *server, UDPpacket *pack_recv, UDPpacket *pac
 
     switch(type) {
         case CLIENT_JOIN:
-            handle_join_request(server, pack_recv, pack_send);
+            handle_join_request(server, pack_recv, pack_send, ticks);
             break;
         case UPDATE_SNAKE_POS:
             handle_update_snake_pos(server, pack_recv, pack_send);
             break;
+        case COLLISION:
+            handle_collision(server, pack_recv, pack_send);
+            break;
     }
 }
 
-void handle_join_request(Server *server, UDPpacket *pack_recv, UDPpacket *pack_send)
+/* void handle_received_packet(void *args) */
+/* { */
+/*     Thread_Args *a = (Thread_Args *) args; */
+
+/*     int type; */
+/*     // get request type from packet */
+/*     sscanf(a->pack_recv->data, "%d", &type); */
+
+/*     switch(type) { */
+/*         case CLIENT_JOIN: */
+/*             handle_join_request(a->server, a->pack_recv, a->pack_send); */
+/*             break; */
+/*         case UPDATE_SNAKE_POS: */
+/*             handle_update_snake_pos(a->server, a->pack_recv, a->pack_send); */
+/*             break; */
+/*     } */
+/* } */
+
+void handle_join_request(Server *server, UDPpacket *pack_recv, UDPpacket *pack_send, unsigned ticks)
 {
     if(server->nr_of_clients < MAX_CLIENTS) {
         // client successfully joined server
         // give client id
         server->clients[server->nr_of_clients].id = server->nr_of_clients;
+        server->clients[server->nr_of_clients].alive = true;
         // add client ip to connected clients, increment of nr_of_clients is done in send_connection_success
         server->clients[server->nr_of_clients].addr = pack_recv->address;
         printf("client connected\n");
         // send back connection success
-        send_connection_success(server, pack_recv, pack_send);
+        send_connection_success(server, pack_recv, pack_send, ticks);
     } else {
         // already 4 clients connected so connection failed
         // send back connection failure
@@ -74,11 +100,9 @@ void handle_join_request(Server *server, UDPpacket *pack_recv, UDPpacket *pack_s
 void handle_update_snake_pos(Server *server, UDPpacket *pack_recv, UDPpacket *pack_send)
 {
     int id, temp;
-    printf("update_snake_pos: %s\n", pack_recv->data);
-
+    // get client id
+    sscanf(pack_recv->data, "%d %d", &temp, &id);
     for(int i = 0; i < server->nr_of_clients; i++) {
-        // get client id
-        sscanf(pack_recv->data, "%d %d", &temp, &id);
         // get clients that should receive packet (everyone but the sender)
         if(id != server->clients[i].id) {
             // specify destination address
@@ -89,14 +113,39 @@ void handle_update_snake_pos(Server *server, UDPpacket *pack_recv, UDPpacket *pa
     }
 }
 
-void send_connection_success(Server *server, UDPpacket *pack_recv, UDPpacket *pack_send)
+void handle_collision(Server *server, UDPpacket *pack_recv, UDPpacket *pack_send)
+{
+    // received data
+    int type, id;
+    // format: type id
+    sscanf(pack_recv->data, "%d %d", &type, &id);
+
+    // update client state on server
+    server->clients[id].alive = false;
+
+    // format data to send
+    // format: type id
+    pack_send->data = pack_recv->data;
+
+    pack_send->channel = pack_recv->channel;
+    pack_send->len = sizeof(pack_send->data);
+    pack_send->maxlen = 1024;
+
+    // send information to all other clients
+    for(int i = 0; i < server->nr_of_clients; i++) {
+        pack_send->address = server->clients[i].addr;
+        SDLNet_UDP_Send(server->udp_sock, pack_send->channel, pack_send);
+    }
+}
+
+void send_connection_success(Server *server, UDPpacket *pack_recv, UDPpacket *pack_send, unsigned ticks)
 {
     // format data
-    char msg[6];
+    char msg[16];
     // send back message that the connection was successful, NOTE: increments nr_of_clients
     // format: type id nr_of_clients
     server->nr_of_clients++;
-    sprintf(msg, "%d %d %d", SUCCESSFUL_CONNECTION, server->clients[server->nr_of_clients-1].id, server->nr_of_clients);
+    sprintf(msg, "%d %d %d %u", SUCCESSFUL_CONNECTION, server->clients[server->nr_of_clients-1].id, server->nr_of_clients, ticks);
     pack_send->data = msg;
 
     pack_send->channel = pack_recv->channel;
@@ -152,9 +201,11 @@ void send_updated_snake_pos(Server *server, UDPpacket *pack_recv, UDPpacket *pac
 {
     // send the same data that the server received to the other clients
     // send back message that the connection failed
-    // format: type id x y direction
+    // format: type id last_received_packet_nr x y direction angle
+    int a, id, packet_nr;
+    sscanf(pack_recv->data, "%d %d %d", &a, &id, &packet_nr);
+    printf("sending packet_nr: %d to: %d\n", packet_nr, id);
     pack_send->data = pack_recv->data;
-
     pack_send->channel = pack_recv->channel;
     pack_send->len = sizeof(pack_send->data)+24;
     pack_send->maxlen = 1024;
@@ -162,6 +213,7 @@ void send_updated_snake_pos(Server *server, UDPpacket *pack_recv, UDPpacket *pac
     // destination address is already defined in pack_send
     // send upd packet
     SDLNet_UDP_Send(server->udp_sock, pack_send->channel, pack_send);
+    /* send_ticks(server, pack_send); */
 }
 
 void send_random_fruit_pos(Server *server, UDPpacket *pack_send)
@@ -176,11 +228,37 @@ void send_random_fruit_pos(Server *server, UDPpacket *pack_send)
 
     pack_send->data = msg;
     pack_send->channel = -1;
-    pack_send->len = sizeof(pack_send->data)+4;
+    pack_send->len = sizeof(msg)+4;
     pack_send->maxlen = 1024;
     
     // send upd packet to each client
     for(int i = 0; i < server->nr_of_clients; i++) {
+        pack_send->address = server->clients[i].addr;
+        log_packet(pack_send);
+        SDLNet_UDP_Send(server->udp_sock, pack_send->channel, pack_send);
+    }
+}
+
+void send_ticks(Server *server, UDPpacket *pack_send)
+{
+    // generate new tick
+    int ticks = SDL_GetTicks();
+    // format message
+    char msg[13];
+    // format: type ticks
+    sprintf(msg, "%d %d", SEND_TICKS, ticks);
+
+    pack_send->data = msg;
+    pack_send->channel = -1;
+    pack_send->len = sizeof(pack_send->data)+4;
+    pack_send->maxlen = 1024;
+
+    /* SDLNet_UDP_Send(server->udp_sock, pack_send->channel, pack_send); */
+    // send to all clients
+    for(int i = 0; i < server->nr_of_clients; i++) {
+        if(!server->clients[i].alive) {
+            continue;
+        }
         pack_send->address = server->clients[i].addr;
         SDLNet_UDP_Send(server->udp_sock, pack_send->channel, pack_send);
     }
