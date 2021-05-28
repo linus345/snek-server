@@ -285,7 +285,7 @@ void send_random_fruit_pos(Server *server, UDPpacket *pack_send)
 
     pack_send->data = msg;
     pack_send->channel = -1;
-    pack_send->len = sizeof(msg)+4;
+    pack_send->len = sizeof(msg);
     pack_send->maxlen = 1024;
     
     // send upd packet to each client
