@@ -10,6 +10,11 @@ Server *init_server(char *host, int port)
     server->host = host;
     server->port = port;
     server->nr_of_clients = 0;
+    server->game_state.started = false;
+    server->game_state.nr_of_fruits = 0;
+    for(int i = 0; i < MAX_CLIENTS; i++) {
+        server->game_state.fruits[i] = 0;
+    }
 
     return server;
 }
@@ -57,6 +62,9 @@ void handle_received_packet(Server *server, UDPpacket *pack_recv, UDPpacket *pac
         case COLLISION:
             handle_collision(server, pack_recv, pack_send);
             break;
+        case ATE_FRUIT:
+            handle_ate_fruit(server, pack_recv, pack_send);
+            break;
     }
 }
 
@@ -85,6 +93,7 @@ void handle_join_request(Server *server, UDPpacket *pack_recv, UDPpacket *pack_s
         // give client id
         server->clients[server->nr_of_clients].id = server->nr_of_clients;
         server->clients[server->nr_of_clients].alive = true;
+        server->clients[server->nr_of_clients].ready_to_start = false;
         // add client ip to connected clients, increment of nr_of_clients is done in send_connection_success
         server->clients[server->nr_of_clients].addr = pack_recv->address;
         printf("client connected\n");
@@ -138,6 +147,40 @@ void handle_collision(Server *server, UDPpacket *pack_recv, UDPpacket *pack_send
     }
 }
 
+void handle_ate_fruit(Server *server, UDPpacket *pack_recv, UDPpacket *pack_send)
+{
+    // received data
+    int type, id, fruit_index;
+    // format: type client_id fruit_index
+    sscanf(pack_recv->data, "%d %d %d", &type, &id, &fruit_index);
+
+    // decrement nr_of_fruits
+    server->game_state.nr_of_fruits--;
+    // indicate that the fruit index is free
+    server->game_state.fruits[fruit_index] = 0;
+
+    // format data to send
+    // format: type id (id of player that ate the fruit) fruit_index
+    pack_send->data = pack_recv->data;
+
+    pack_send->channel = pack_recv->channel;
+    pack_send->len = sizeof(pack_send->data)+8;
+    pack_send->maxlen = 1024;
+
+    // send information to all other clients
+    for(int i = 0; i < server->nr_of_clients; i++) {
+        if(id != server->clients[i].id) {
+            printf("----------------\n");
+            printf("ate_fruit: type id fruit_index\n");
+            log_packet(pack_send);
+            printf("----------------\n");
+
+            pack_send->address = server->clients[i].addr;
+            SDLNet_UDP_Send(server->udp_sock, pack_send->channel, pack_send);
+        }
+    }
+}
+
 void send_connection_success(Server *server, UDPpacket *pack_recv, UDPpacket *pack_send, unsigned ticks)
 {
     // format data
@@ -149,7 +192,7 @@ void send_connection_success(Server *server, UDPpacket *pack_recv, UDPpacket *pa
     pack_send->data = msg;
 
     pack_send->channel = pack_recv->channel;
-    pack_send->len = sizeof(pack_send->data);
+    pack_send->len = sizeof(msg);
     pack_send->maxlen = 1024;
 
     // specify destination address from source address
@@ -204,7 +247,7 @@ void send_updated_snake_pos(Server *server, UDPpacket *pack_recv, UDPpacket *pac
     // format: type id last_received_packet_nr x y direction angle
     int a, id, packet_nr;
     sscanf(pack_recv->data, "%d %d %d", &a, &id, &packet_nr);
-    printf("sending packet_nr: %d to: %d\n", packet_nr, id);
+    /* printf("sending packet_nr: %d to: %d\n", packet_nr, id); */
     pack_send->data = pack_recv->data;
     pack_send->channel = pack_recv->channel;
     pack_send->len = sizeof(pack_send->data)+24;
@@ -218,13 +261,27 @@ void send_updated_snake_pos(Server *server, UDPpacket *pack_recv, UDPpacket *pac
 
 void send_random_fruit_pos(Server *server, UDPpacket *pack_send)
 {
-    char msg[40];
+    char msg[42];
     int random_x = rand();
     int random_y = rand();
     int random_type = rand();
+    int fruit_index = -1;
+
+    // get first free fruit index
+    for(int i = 0; i < MAX_CLIENTS; i++) {
+        if(server->game_state.fruits[i] == 0) {
+            // save fruit index
+            fruit_index = i;
+            // indicate that fruit index is taken
+            server->game_state.fruits[i] = 1;
+            break;
+        }
+    }
+    printf("fruit_index: %d\n", fruit_index);
 
     // format request typ, x pos, y pos and random type before sending
-    sprintf(msg, "%d %d %d %d", RANDOM_POS, random_x, random_y, random_type);
+    // format: type x_pos y_pos fruit_type fruit_index
+    sprintf(msg, "%d %d %d %d %d", RANDOM_POS, random_x, random_y, random_type, fruit_index);
 
     pack_send->data = msg;
     pack_send->channel = -1;

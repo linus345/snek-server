@@ -79,9 +79,13 @@ int main(int argc, char *argv[])
 
         // generate new fruit position every other second and send to clients
         t1_current_time = SDL_GetTicks();
-        if (t1_current_time > t1_last_time + 2000) {
+        // TODO: only call SDL_GetTicks when fruit was eaten
+        if (t1_current_time > t1_last_time + 2000 &&
+            server->game_state.nr_of_fruits < server->nr_of_clients) {
             // send random fruit position to all clients
             send_random_fruit_pos(server, pack_send);
+            // increment nr_of_fruits
+            server->game_state.nr_of_fruits++;
             t1_last_time = t1_current_time;
         }
 
