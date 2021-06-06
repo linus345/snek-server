@@ -65,6 +65,9 @@ void handle_received_packet(Server *server, UDPpacket *pack_recv, UDPpacket *pac
         case ATE_FRUIT:
             handle_ate_fruit(server, pack_recv, pack_send);
             break;
+        case COLOR_CHANGE:
+            handle_color_change(server, pack_recv, pack_send);
+            break;
     }
 }
 
@@ -118,6 +121,25 @@ void handle_update_snake_pos(Server *server, UDPpacket *pack_recv, UDPpacket *pa
             pack_send->address = server->clients[i].addr;
             // send packet to clients
             send_updated_snake_pos(server, pack_recv, pack_send);
+        }
+    }
+}
+
+void handle_color_change(Server *server, UDPpacket *pack_recv, UDPpacket *pack_send)
+{
+    // format: type id packet_nr new_color
+    int type, id, packet_nr, new_color;
+
+    // get client id
+    sscanf(pack_recv->data, "%d %d %d", &type, &id, &new_color);
+    printf("color change from %d to color %d\n", id, new_color);
+    for(int i = 0; i < server->nr_of_clients; i++) {
+        // get clients that should receive packet (everyone but the sender)
+        if(id != server->clients[i].id) {
+            // specify destination address
+            pack_send->address = server->clients[i].addr;
+            // send packet to clients
+            send_color_change(server, pack_recv, pack_send);
         }
     }
 }
@@ -184,7 +206,7 @@ void handle_ate_fruit(Server *server, UDPpacket *pack_recv, UDPpacket *pack_send
 void send_connection_success(Server *server, UDPpacket *pack_recv, UDPpacket *pack_send, unsigned ticks)
 {
     // format data
-    char msg[16];
+    char msg[128];
     // send back message that the connection was successful, NOTE: increments nr_of_clients
     // format: type id nr_of_clients
     server->nr_of_clients++;
@@ -255,6 +277,25 @@ void send_updated_snake_pos(Server *server, UDPpacket *pack_recv, UDPpacket *pac
 
     // destination address is already defined in pack_send
     // send upd packet
+    SDLNet_UDP_Send(server->udp_sock, pack_send->channel, pack_send);
+    /* send_ticks(server, pack_send); */
+}
+
+void send_color_change(Server *server, UDPpacket *pack_recv, UDPpacket *pack_send)
+{
+    // send the same data that the server received to the other clients
+    // send back message that the connection failed
+    int a, id, packet_nr;
+    sscanf(pack_recv->data, "%d %d %d", &a, &id, &packet_nr);
+    /* printf("sending packet_nr: %d to: %d\n", packet_nr, id); */
+    pack_send->data = pack_recv->data;
+    pack_send->channel = pack_recv->channel;
+    pack_send->len = sizeof(pack_send->data)+24;
+    pack_send->maxlen = 1024;
+
+    // destination address is already defined in pack_send
+    // send upd packet
+    log_packet(pack_send);
     SDLNet_UDP_Send(server->udp_sock, pack_send->channel, pack_send);
     /* send_ticks(server, pack_send); */
 }
