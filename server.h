@@ -15,7 +15,8 @@ enum Request_Type {
     SEND_TICKS = 6,
     COLLISION = 7,
     ATE_FRUIT = 8,
-    COLOR_CHANGE = 9
+    COLOR_CHANGE = 9,
+    START_GAME = 10
 };
 
 typedef struct {
@@ -52,12 +53,14 @@ void log_packet(UDPpacket *pack_recv);
 /* void listen_for_packets(Server *server, UDPpacket *pack_recv); */
 void handle_received_packet(Server *server, UDPpacket *pack_recv, UDPpacket *pack_send, unsigned ticks);
 void handle_join_request(Server *server, UDPpacket *pack_recv, UDPpacket *pack_send, unsigned ticks);
+void handle_start_game(Server *server, UDPpacket *pack_recv, UDPpacket *pack_send);
 void handle_update_snake_pos(Server *server, UDPpacket *pack_recv, UDPpacket *pack_send);
 void handle_color_change(Server *server, UDPpacket *pack_recv, UDPpacket *pack_send);
 void handle_collision(Server *server, UDPpacket *pack_recv, UDPpacket *pack_send);
 void handle_ate_fruit(Server *server, UDPpacket *pack_recv, UDPpacket *pack_send);
 void send_connection_success(Server *server, UDPpacket *pack_recv, UDPpacket *pack_send, unsigned ticks);
 void send_connection_failed(Server *server, UDPpacket *pack_recv, UDPpacket *pack_send);
+void send_start_game(Server *server, UDPpacket *pack_send);
 void send_updated_snake_pos(Server *server, UDPpacket *pack_recv, UDPpacket *pack_send);
 void send_color_change(Server *server, UDPpacket *pack_recv, UDPpacket *pack_send);
 void send_random_fruit_pos(Server *server, UDPpacket *pack_send);

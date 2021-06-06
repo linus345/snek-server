@@ -68,6 +68,9 @@ void handle_received_packet(Server *server, UDPpacket *pack_recv, UDPpacket *pac
         case COLOR_CHANGE:
             handle_color_change(server, pack_recv, pack_send);
             break;
+        case START_GAME:
+            handle_start_game(server, pack_recv, pack_send);
+            break;
     }
 }
 
@@ -107,6 +110,13 @@ void handle_join_request(Server *server, UDPpacket *pack_recv, UDPpacket *pack_s
         // send back connection failure
         send_connection_failed(server, pack_recv, pack_send);
     }
+}
+
+void handle_start_game(Server *server, UDPpacket *pack_recv, UDPpacket *pack_send)
+{
+    server->game_state.started = true;
+
+    send_start_game(server, pack_send);
 }
 
 void handle_update_snake_pos(Server *server, UDPpacket *pack_recv, UDPpacket *pack_send)
@@ -260,6 +270,24 @@ void send_connection_failed(Server *server, UDPpacket *pack_recv, UDPpacket *pac
 
     // send udp packet
     SDLNet_UDP_Send(server->udp_sock, pack_send->channel, pack_send);
+}
+
+void send_start_game(Server *server, UDPpacket *pack_send)
+{
+    char msg[128];
+    // format: type
+    sprintf(msg, "%d", START_GAME);
+    pack_send->data = msg;
+
+    pack_send->channel = -1;
+    pack_send->len = sizeof(msg);
+    pack_send->maxlen = 1024;
+
+    // send to every client
+    for(int i = 0; i < server->nr_of_clients; i++) {
+        pack_send->address = server->clients[i].addr;
+        SDLNet_UDP_Send(server->udp_sock, pack_send->channel, pack_send);
+    }
 }
 
 void send_updated_snake_pos(Server *server, UDPpacket *pack_recv, UDPpacket *pack_send)
